@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
+	xmlns:compression="http://www.mulesoft.org/schema/mule/compression" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:min-log="http://www.mulesoft.org/schema/mule/min-log" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/min-log http://www.mulesoft.org/schema/mule/min-log/current/mule-min-log.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/compression http://www.mulesoft.org/schema/mule/compression/current/mule-compression.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
+
+	<flow name="dynamic-discovery.poll" doc:id="29ed932a-994f-4973-964e-c21ac821cbbf">
+		<scheduler doc:name="Scheduler" doc:id="5fa44b7b-2b6d-4be7-b227-25b3c442dd76" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="${secure::discovery.refreshIntervalMS}" startDelay="${secure::discovery.startDelayMS}"/>
+			</scheduling-strategy>
+		</scheduler>
+		<flow-ref doc:name="dynamic-discovery.get-registered-services" doc:id="5184ae15-38ee-48f6-a698-fca63f5e92d3" name="dynamic-discovery.get-registered-services"/>
+		<logger level="DEBUG" doc:name="Logger" doc:id="1934ef0d-f384-4288-bf9c-6cfc3c08d31b" message="#[payload]"/>
+	</flow>
+	<flow name="dynamic-discovery.get-registered-services" doc:id="e11f2246-d4b4-4630-895c-e038f4606fe0" >
+		<http:request method="GET" doc:name="Lookup Service by appId" doc:id="4ebe7741-12b9-48d1-a43c-dc7aa972d228" config-ref="Dynamic_Service_Registry_Configuration" path="/${secure::implementation.appId}">
+			<http:headers ><![CDATA[#[output applicaton/java
+---
+{
+	"Accept" : "application/xml"
+}]]]></http:headers>
+			<http:response-validator >
+				<http:success-status-code-validator values="200..599" />
+			</http:response-validator>
+		</http:request>
+		<set-variable value="#[attributes.statusCode]" doc:name="statusCode" doc:id="929a568d-caa3-4605-9f23-0ef9b607df7b" variableName="statusCode"/>
+		<choice doc:name="Choice" doc:id="be70f3d9-69f0-49a9-b19d-7943172e2113">
+					<when expression="#[attributes.headers['content-encoding'] == 'gzip' and vars.statusCode == 200]">
+						<compression:unzip doc:name="Unzip" doc:id="02eb27dc-ca94-49af-8107-ceaca6e6e014" outputMimeType="application/xml">
+				</compression:unzip>
+					</when>
+				</choice>
+		<choice doc:name="Choice" doc:id="f281dace-26a4-4243-a8e8-b2d237fa1891" >
+			<when expression="#[vars.statusCode != 200]" >
+				<min-log:log doc:name="bad statusCode" doc:id="118a3d07-63b0-48bd-b9ec-5eef99b3988f" level="WARN" msg="Service Registry lookup bad status code." transactionProperties="#[{statusCode: attributes.statusCode}]"/>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Transform Message" doc:id="d653bc15-b3f4-47c9-9c62-ab06f2c45f22">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+input payload application/xml
+output application/java
+---
+{
+	appId: payload.application.name,
+	instances: payload.application.*instance map {
+		hostname: $.hostName,
+		ipAddress: $.ipAddr,
+		port: $.port,
+		securePort: $.securePort,
+		status: $.status,
+		vipAddress: $.vipAddress,
+		secureVipAddress: $.secureVipAddress
+	 } filter $.status == 'UP'
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<os:store doc:name="Store" doc:id="2495a600-213c-4474-a15f-6a3f3a1d4fa7" key="${secure::implementation.appId}" failOnNullValue="false" objectStore="Discovery_Service_Data"/>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="dynamic-discovery.test-pickPoll" doc:id="88947ef4-c72e-45d7-bddc-3c2122b9fa7b" initialState="stopped" maxConcurrency="1">
+		<scheduler doc:name="Scheduler" doc:id="100651a5-eed5-48e6-bf7c-255b300226b5" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="500" startDelay="10000"/>
+			</scheduling-strategy>
+		</scheduler>
+		<flow-ref doc:name="dynamic-discovery.pick" doc:id="b347a649-bb2d-4392-85d7-6294416caf8e" name="dynamic-discovery.pick"/>
+		<logger level="INFO" doc:name="Logger" doc:id="c9d6a7ae-54db-43ae-9b77-7ff18b8906f6" message="#[vars.api]"/>
+	</flow>
+
+	<flow name="dynamic-discovery.pick" doc:id="0d7de5d6-bad6-45a0-88fc-8e6c8aa7b02e">
+		<try doc:name="Try" doc:id="947abbfa-7123-4eb8-9db4-e76e6bd23a1f" >
+			<os:retrieve doc:name="Retrieve" doc:id="833f3484-ea53-4952-bf07-a5d5269acdb8" key="${secure::implementation.appId}" objectStore="Discovery_Service_Data" target="discovery_service_data"/>
+			<set-variable value="#[vars.discovery_service_data.instances[randomInt(sizeOf(vars.discovery_service_data.instances))]]" doc:name="pick api instance" doc:id="978e1269-058f-4375-a2f0-2b6d7c043979" variableName="api"/>
+			<error-handler >
+					<on-error-continue enableNotifications="false" logException="false" doc:name="On Error Continue" doc:id="9f4d2deb-dd1d-453c-a565-1d6013f448af" type="OS:KEY_NOT_FOUND">
+					<min-log:log doc:name="Log" doc:id="7e6f1de6-5f11-4e95-8465-d0ca620ff07a" msg="No registration entries found for appId" transactionProperties='#[{appId: "${secure::implementation.appId}"}]' />
+					<remove-variable doc:name="no api instance" doc:id="ebcddae5-f4fb-412a-a939-bc7b779f0893" variableName="api"/>
+				</on-error-continue>
+			</error-handler>
+		</try>
+	</flow>
+	
+</mule>

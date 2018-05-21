@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
+	xmlns:min-log="http://www.mulesoft.org/schema/mule/min-log"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:proxy="http://www.mulesoft.org/schema/mule/proxy"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd
+        http://www.mulesoft.org/schema/mule/proxy http://www.mulesoft.org/schema/mule/proxy/current/mule-proxy.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/min-log http://www.mulesoft.org/schema/mule/min-log/current/mule-min-log.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
+
+	<configuration defaultResponseTimeout="${secure::proxy.responseTimeout}" />
+
+	<proxy:config name="proxy-config" />
+
+	<api-gateway:autodiscovery apiId="${secure::api.id}"
+		flowRef="proxy" />
+
+	<flow name="proxy">
+		<http:listener config-ref="http-listener-config" path="${secure::proxy.path}"
+			doc:name="Listener">
+			<http:response statusCode="#[vars.statusCode]"
+				reasonPhrase="#[vars.reasonPhrase]">
+				<http:headers><![CDATA[#[output applicaton/java
+---
+{
+	"x-transaction-id" : vars.transactionProperties.'x-transaction-id'
+}]]]></http:headers>
+			</http:response>
+			<http:error-response statusCode="#[vars.statusCode]" reasonPhrase="#[vars.reasonPhrase]" >
+				<http:body ><![CDATA[#[payload]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<set-variable value="#[{&quot;method&quot;: attributes.method, &quot;listenerPath&quot;: attributes.listenerPath, &quot;requestPath&quot;: attributes.requestPath, &quot;client_id&quot;: attributes.headers['client_id'], &quot;client_secret&quot;: attributes.headers['client_secret'], &quot;accept&quot;: attributes.headers['accept'], &quot;content-type&quot;: attributes.headers['content-type']}]" doc:name="proxyRequestAttrs" doc:id="eed8dd19-cf08-4916-8309-aaf9f0e68320" variableName="proxyRequestAttrs"/>
+		<min-log:new
+			doc:name="Set transaction properties" doc:id="03a758b5-7519-4a26-b745-754aebe0c195"
+			target="transactionProperties" headers="#[vars.proxyRequestAttrs.headers]" />
+		
+<!-- 		<min-log:timed transactionProperties="#[vars.transactionProperties]" doc:name="Timed" doc:id="63086e80-b2df-4df4-953a-cf83ddea857c" > -->
+			<flow-ref doc:name="router.route-to-discoverable-api" doc:id="7628dc61-c4ad-4fd3-a8ac-0100bdb9ed93" name="router.route-to-discoverable-api"/>
+<!-- 		</min-log:timed> -->
+		<error-handler>
+			<on-error-continue type="HTTP:TIMEOUT"
+				logException="false">
+				<ee:transform doc:id="1e19d50a-9b4c-4ee6-a230-fb43e84c6df2">
+					<ee:message>
+						<ee:set-attributes><![CDATA[
+                            {
+                                statusCode: 504
+                            }
+                        ]]></ee:set-attributes>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	
+	<flow name="router.route-to-discoverable-api" doc:id="cb0659cd-29f8-43c9-9ef0-8ee1003e7450" >
+		<flow-ref doc:name="dynamic-discovery.pick" doc:id="32b6d5bc-0edf-408f-80bb-1ef209dec906" name="dynamic-discovery.pick"/>
+		<choice doc:name="Choice" doc:id="47508076-e465-4c59-9b11-06bad70edecb" >
+			<when expression="#[vars.api != null]" >
+				<http:request method="#[vars.proxyRequestAttrs.method]"
+						path="#[vars.proxyRequestAttrs.requestPath replace ((((vars.proxyRequestAttrs.listenerPath replace '/\*' as Regex with '') replace /\{\w+\}/ with '\\w+') as Regex replace '/' with '\\/')) as Regex with '']"
+						doc:name="Request" config-ref="Implementation_Service_Configuration">
+						<http:headers ><![CDATA[#[output applicaton/java
+---
+{
+	"client_id" : vars.proxyRequestAttrs.'client_id',
+	"client_secret" : vars.proxyRequestAttrs.'client_secret',
+	"Accept" : vars.proxyRequestAttrs.'accept',
+	"Content-Type" : vars.proxyRequestAttrs.'content-type',
+	"x-transaction-id" : vars.transactionProperties.'x-transaction-id'
+}]]]></http:headers>
+					<http:response-validator>
+							<http:success-status-code-validator
+								values="0..599" />
+						</http:response-validator>
+				</http:request>
+				<ee:transform doc:name="Transform Message" doc:id="90399283-277d-4516-9368-105a0a06d62f" >
+					<ee:message >
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="statusCode" ><![CDATA[attributes.statusCode]]></ee:set-variable>
+						<ee:set-variable variableName="reasonPhrase" ><![CDATA[attributes.reasonPhrase]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+					xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd" doc:id="c7fa1c02-d6c0-4396-b954-9facfd36777b">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+	output application/json
+	---
+	{status: "503", message: "Service Unavailable"}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="reasonPhrase" ><![CDATA["Service Unavailable"]]></ee:set-variable>
+						<ee:set-variable variableName="statusCode" ><![CDATA[503
+						]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>

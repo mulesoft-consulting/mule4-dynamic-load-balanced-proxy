@@ -1,0 +1,29 @@
+#proxy configuration elements for local environment
+api:
+  id: "12378500"
+  
+proxy:
+  path: "/*"
+  port: "8084"
+  responseTimeout: "10000"
+
+implementation:
+  appId: "myDemoOne"
+  path: "/mule4-dynamic-registration-api/v1"
+  protocol: "HTTP"
+  retries: "25"
+  retryDelayMS: "50"
+ 
+serviceRegistry:
+  host: "localhost"
+  port: "8080"
+  base: "/eureka/v2/apps"
+  timeoutMS: "30000"
+  
+discovery:
+  refreshIntervalMS: "30000"
+  startDelayMS: "5000"
+  maxEntries: "200"
+  entryTimeToLiveHRS: "24"
+  expirationIntervalMINS: "15"
+  
