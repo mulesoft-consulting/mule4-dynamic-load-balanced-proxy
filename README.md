@@ -1,6 +1,5 @@
-The # mule4-dynamic-load-balanced-proxy
+# mule4-dynamic-load-balanced-proxy
 With micro-services, a dynamic service registry is used to publish micro-service availability to applications that need to use the service. This proxy API uses the dynamic registry to locate instances of the implementation and then invokes one of them using an random selection algorithm.
-
 
 This is a Mule 4.1 example of an API using API Management and dynamic API registration using the Eureka REST API as the interface to a dynamic service registry. 
 
@@ -19,7 +18,7 @@ The project contains examples using:
 * Api Manager gateway auto-discovery registration,
 * Using the Maven filter "feature" to add Maven properties to code in files stored in the resources-filtered directory...specifically, updating the api.base and log4j2 configurations with the project name.
 * Eureka REST API for dynamic service lookup,
-* Proxy requests from dynamic service list using a random selection algorithm.
+* HTTP request built from inbound headers and request values.
 
 ## Purpose
 
