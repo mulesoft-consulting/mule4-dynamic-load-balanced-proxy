@@ -41,6 +41,9 @@ http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mul
 					</when>
 				</choice>
 		<choice doc:name="Choice" doc:id="f281dace-26a4-4243-a8e8-b2d237fa1891" >
+			<when expression="#[vars.statusCode == 404]" >
+				<os:remove doc:name="Remove" doc:id="9dee7826-9517-42b8-98dd-1967592d5174" key="${secure::implementation.appId}" objectStore="Discovery_Service_Data"/>
+			</when>
 			<when expression="#[vars.statusCode != 200]" >
 				<min-log:log doc:name="bad statusCode" doc:id="118a3d07-63b0-48bd-b9ec-5eef99b3988f" level="WARN" msg="Service Registry lookup bad status code." transactionProperties="#[{statusCode: attributes.statusCode}]"/>
 			</when>
@@ -82,6 +85,7 @@ output application/java
 	<flow name="dynamic-discovery.pick" doc:id="0d7de5d6-bad6-45a0-88fc-8e6c8aa7b02e">
 		<try doc:name="Try" doc:id="947abbfa-7123-4eb8-9db4-e76e6bd23a1f" >
 			<os:retrieve doc:name="Retrieve" doc:id="833f3484-ea53-4952-bf07-a5d5269acdb8" key="${secure::implementation.appId}" objectStore="Discovery_Service_Data" target="discovery_service_data"/>
+			<logger level="INFO" doc:name="Logger" doc:id="4f809c59-b323-4830-b025-bf1d030dc2bf" message="#[vars.discovery_service_data]"/>
 			<set-variable value="#[vars.discovery_service_data.instances[randomInt(sizeOf(vars.discovery_service_data.instances))]]" doc:name="pick api instance" doc:id="978e1269-058f-4375-a2f0-2b6d7c043979" variableName="api"/>
 			<error-handler >
 					<on-error-continue enableNotifications="false" logException="false" doc:name="On Error Continue" doc:id="9f4d2deb-dd1d-453c-a565-1d6013f448af" type="OS:KEY_NOT_FOUND">

@@ -1,4 +1,4 @@
-# mule4-dynamic-load-balanced-proxy
+The # mule4-dynamic-load-balanced-proxy
 With micro-services, a dynamic service registry is used to publish micro-service availability to applications that need to use the service. This proxy API uses the dynamic registry to locate instances of the implementation and then invokes one of them using an random selection algorithm.
 
 
@@ -45,12 +45,9 @@ The configuration properties are stored in the src/main/resources-filtered/mule4
 * serviceRegistry.timeoutMS is the amount of time to wait for the registry to respond to an invocation,
 * discovery.refreshIntervalMS is the number of milliseconds between refreshes of the registered API list,
 * discovery.startDelayMS is the number of milliseconds to wait before starting the refresh registered API list polling,
-* discovery.maxEntries is the maximum number of registered APIs that will be stored,
-* discovery.entryTimeToLiveHRS is the number of hours to keep a registered API in the list if no refresh from the registry server is available,
-* discovery.expirationInteralMINS is the number of minutes to wait between checking for expired APIs in the list
-
-Note that the api.port is not used if a shared domain is configured and used for the HTTP listener configuration.
-
+* discovery.maxEntries is the maximum number of lists that can be stored,
+* discovery.entryTimeToLiveHRS is the number of hours to keep a list if no refresh from the registry server is available (only applicable if remove on not found is not used),
+* discovery.expirationInteralMINS is the number of minutes to wait between checking for expired lists.
 
 ## Runtime properties
 
