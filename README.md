@@ -18,9 +18,8 @@ The project contains examples using:
 * Maven deployment using the mule-maven-plugin descriptor,
 * Api Manager gateway auto-discovery registration,
 * Using the Maven filter "feature" to add Maven properties to code in files stored in the resources-filtered directory...specifically, updating the api.base and log4j2 configurations with the project name.
-* Eureka REST API for dynamic service registration,
-* Initiating flows on Mule application started and stopping notifications,
-* Invoking a flow from java.
+* Eureka REST API for dynamic service lookup,
+* Proxy requests from dynamic service list using a random selection algorithm.
 
 ## Purpose
 

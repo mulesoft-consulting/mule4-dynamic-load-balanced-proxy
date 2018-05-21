@@ -16,8 +16,6 @@ http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mul
 
 	<configuration defaultResponseTimeout="${secure::proxy.responseTimeout}" />
 
-	<proxy:config name="proxy-config" />
-
 	<api-gateway:autodiscovery apiId="${secure::api.id}"
 		flowRef="proxy" />
 
@@ -42,8 +40,10 @@ http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mul
 			target="transactionProperties" headers="#[vars.proxyRequestAttrs.headers]" />
 		
 <!-- 		<min-log:timed transactionProperties="#[vars.transactionProperties]" doc:name="Timed" doc:id="63086e80-b2df-4df4-953a-cf83ddea857c" > -->
-			<flow-ref doc:name="router.route-to-discoverable-api" doc:id="7628dc61-c4ad-4fd3-a8ac-0100bdb9ed93" name="router.route-to-discoverable-api"/>
 <!-- 		</min-log:timed> -->
+		<until-successful maxRetries="${secure::implementation.retries}" doc:name="Until Successful" doc:id="9ed006c3-5ec6-4b09-a4db-509314ed8efe" millisBetweenRetries="${secure::implementation.retryDelayMS}">
+			<flow-ref doc:name="router.route-to-discoverable-api" doc:id="7628dc61-c4ad-4fd3-a8ac-0100bdb9ed93" name="router.route-to-discoverable-api" />
+		</until-successful>
 		<error-handler>
 			<on-error-continue type="HTTP:TIMEOUT"
 				logException="false">
